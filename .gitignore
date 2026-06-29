@@ -1,0 +1,60 @@
+# Local credentials and environments
+repo-creds.txt
+.env
+.env.*
+!.env.example
+!.env.*.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.pub
+id_rsa*
+id_ed25519*
+*_key
+*_key.*
+*_password
+
+# Generated runtime data and evidence
+runtime/
+reports/
+*.pcap
+*.pcapng
+*.log
+
+# Tooling, editors, environments and caches
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.cache/
+.coverage
+htmlcov/
+coverage.xml
+node_modules/
+.codex/
+.agents/
+.claude/
+.cursor/
+.superpowers/
+.idea/
+.vscode/
+.DS_Store
+
+# Terraform local state, plans and variable secrets
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+*.tfvars
+*.tfvars.json
+!*.tfvars.example
+!*.tfvars.json.example
+crash.log
+crash.*.log
+
+# Local implementation planning artifacts
+docs/superpowers/
