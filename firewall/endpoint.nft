@@ -1,0 +1,17 @@
+destroy table inet endpoint
+table inet endpoint {
+    chain output {
+        type filter hook output priority -200; policy drop;
+        oifname "lo" accept
+        ip daddr { 10.77.10.0/24, 10.77.20.0/24, 10.77.30.0/24, 10.77.40.0/24, 10.77.50.0/24, 10.77.60.0/24 } accept
+    }
+    chain input {
+        type filter hook input priority 0; policy drop;
+        iifname "lo" accept
+        ct state established,related accept
+        # SSH is restricted even on the management bridge (L2 doesn't route).
+        ip daddr 10.77.30.20 tcp dport 22 ip saddr { 10.77.30.10, 10.77.40.20 } accept
+        ip daddr 10.77.30.20 drop
+        ip saddr { 10.77.10.0/24, 10.77.20.0/24, 10.77.30.0/24, 10.77.40.0/24, 10.77.50.0/24, 10.77.60.0/24 } accept
+    }
+}

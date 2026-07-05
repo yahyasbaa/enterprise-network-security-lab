@@ -1,0 +1,38 @@
+flush ruleset
+table inet lab {
+    chain inspect {
+        type filter hook prerouting priority -150; policy accept;
+        # Fail closed when Suricata is absent. Inspect attempts before filtering.
+        meta nfproto ipv4 queue num 0
+    }
+    chain input {
+        type filter hook input priority 0; policy drop;
+        iifname "lo" accept
+        ct state established,related accept
+        limit rate 20/second log prefix "F02 router-deny " group 5
+        counter drop comment "F02"
+    }
+    chain output {
+        type filter hook output priority 0; policy drop;
+        oifname "lo" accept
+        ct state established,related accept
+    }
+    chain forward {
+        type filter hook forward priority 0; policy drop;
+        ct state invalid counter drop comment "F03"
+        ct state established,related counter accept comment "F04"
+        ip saddr 10.77.10.10 ip daddr 10.77.50.10 tcp dport 80 ct state new log prefix "F10 allow " group 5 counter accept comment "F10"
+        ip saddr 10.77.10.10 ip daddr 10.77.60.10 tcp dport 80 ct state new log prefix "F11 allow " group 5 counter accept comment "F11"
+        ip saddr 10.77.60.10 ip daddr 10.77.50.10 tcp dport 80 ct state new log prefix "F12 allow " group 5 counter accept comment "F12"
+        ip saddr 10.77.50.10 ip daddr 10.77.20.10 tcp dport 5432 ct state new log prefix "F13 allow " group 5 counter accept comment "F13"
+        ip saddr 10.77.30.10 ip daddr 10.77.20.10 tcp dport 5432 ct state new log prefix "F14 allow " group 5 counter accept comment "F14"
+        ip saddr 10.77.30.10 ip daddr 10.77.50.10 tcp dport 80 ct state new log prefix "F15 allow " group 5 counter accept comment "F15"
+        ip saddr 10.77.30.10 ip daddr 10.77.40.10 tcp dport 8080 ct state new log prefix "F16 allow " group 5 counter accept comment "F16"
+        ip saddr 10.77.40.20 ip daddr 10.77.50.10 tcp dport 80 ct state new log prefix "F17 allow " group 5 counter accept comment "F17"
+        ip saddr 10.77.40.20 ip daddr 10.77.20.10 tcp dport 5432 ct state new log prefix "F18 allow " group 5 counter accept comment "F18"
+        ip saddr 10.77.40.20 ip daddr 10.77.30.20 tcp dport 22 ct state new log prefix "F19 allow " group 5 counter accept comment "F19"
+        ip saddr 10.77.40.20 ip daddr { 10.77.20.10, 10.77.50.10, 10.77.60.10 } icmp type echo-request log prefix "F20 allow " group 5 counter accept comment "F20"
+        limit rate 100/second log prefix "F99 deny " group 5
+        counter drop comment "F99"
+    }
+}
