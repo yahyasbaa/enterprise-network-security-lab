@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width">
+<title>Enterprise Lab · Security Events</title>
+<style>
+body{font:15px system-ui,sans-serif;background:#101923;color:#e1e9ef;margin:2rem}
+h1{font-size:1.8rem}select,button{font:inherit;padding:.5rem;background:#203445;color:inherit;border:1px solid #657b8e}
+table{border-collapse:collapse;width:100%;margin-top:1rem}td,th{text-align:left;border-bottom:1px solid #344855;padding:.6rem;vertical-align:top}
+pre{white-space:pre-wrap;word-break:break-word;max-width:65rem}small{color:#a8bdca}a{color:#72d8ca}
+</style>
+<h1>Enterprise Network Security Lab</h1><p>Local event console · newest 200 events · updates every 5 seconds</p>
+<p id="summary" role="status">Loading events…</p>
+<label>Source <select id="source"><option value="">All</option><option>suricata</option><option>firewall</option><option>nginx_access</option><option>nginx_error</option><option>ssh</option></select></label>
+<button id="refresh">Refresh</button>
+<table><thead><tr><th>Timestamp / source</th><th>Flow</th><th>Event / evidence</th></tr></thead><tbody id="events"></tbody></table>
+<script>
+async function refresh(){try{
+const source=document.querySelector('#source').value;
+const [summary,events]=await Promise.all([fetch('/api/summary').then(r=>r.json()),fetch('/api/events?source='+encodeURIComponent(source)).then(r=>r.json())]);
+document.querySelector('#summary').textContent=`${summary.alerts} alerts · `+Object.entries(summary.sources).map(([s,n])=>`${s}: ${n}`).join(' · ');
+const rows=events.map(e=>{const tr=document.createElement('tr');
+for(const value of [e.timestamp+' / '+e.source,(e.src_ip||'—')+' → '+(e.dest_ip||'—')+' / '+(e.proto||'—')]){const td=document.createElement('td');td.textContent=value;tr.append(td)}
+const td=document.createElement('td'),details=document.createElement('details'),label=document.createElement('summary'),pre=document.createElement('pre');
+label.textContent=e.signature||e.category||e.raw.rule_id||e.raw.uri||'Event';pre.textContent=JSON.stringify(e,null,2);details.append(label,pre);td.append(details);tr.append(td);return tr});
+document.querySelector('#events').replaceChildren(...rows);
+}catch(e){document.querySelector('#summary').textContent='Collector unavailable: '+e.message}}
+document.querySelector('#source').onchange=refresh;document.querySelector('#refresh').onclick=refresh;refresh();setInterval(refresh,5000);
+</script></html>
