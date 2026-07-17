@@ -1,0 +1,478 @@
+name: enslab
+services:
+  firewall:
+    image: enslab-node:trixie
+    build:
+      context: .
+      dockerfile: services/base/Dockerfile
+    init: false
+    cap_add:
+    - NET_ADMIN
+    - NET_RAW
+    security_opt:
+    - no-new-privileges:true
+    sysctls:
+      net.ipv4.ip_forward: '1'
+      net.ipv4.conf.all.rp_filter: '0'
+      net.ipv6.conf.all.disable_ipv6: '1'
+    logging:
+      driver: json-file
+      options:
+        max-size: 5m
+        max-file: '2'
+    pids_limit: 128
+    restart: unless-stopped
+    command:
+    - firewall
+    networks:
+      '10':
+        ipv4_address: 10.77.10.254
+      '20':
+        ipv4_address: 10.77.20.254
+      '30':
+        ipv4_address: 10.77.30.254
+      '40':
+        ipv4_address: 10.77.40.254
+      '50':
+        ipv4_address: 10.77.50.254
+      '60':
+        ipv4_address: 10.77.60.254
+    volumes:
+    - ./runtime/logs/firewall:/logs/firewall
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - test -f /run/firewall-ready && nft list table inet lab >/dev/null && pgrep
+        -f logger.py >/dev/null
+      interval: 2s
+      timeout: 2s
+      retries: 20
+  suricata:
+    image: enslab-node:trixie
+    build:
+      context: .
+      dockerfile: services/base/Dockerfile
+    init: false
+    cap_add:
+    - NET_ADMIN
+    - NET_RAW
+    security_opt:
+    - no-new-privileges:true
+    sysctls: {}
+    logging:
+      driver: json-file
+      options:
+        max-size: 5m
+        max-file: '2'
+    pids_limit: 128
+    restart: unless-stopped
+    command:
+    - suricata
+    network_mode: service:firewall
+    depends_on:
+      firewall:
+        condition: service_healthy
+    volumes:
+    - ./runtime/logs/suricata:/logs/suricata
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - suricatasc -c uptime /run/suricata-command.socket | grep -q OK
+      interval: 3s
+      timeout: 3s
+      retries: 30
+      start_period: 5s
+  users:
+    image: enslab-node:trixie
+    build:
+      context: .
+      dockerfile: services/base/Dockerfile
+    init: false
+    cap_add:
+    - NET_ADMIN
+    - NET_RAW
+    security_opt:
+    - no-new-privileges:true
+    sysctls:
+      net.ipv6.conf.all.disable_ipv6: '1'
+    logging:
+      driver: json-file
+      options:
+        max-size: 5m
+        max-file: '2'
+    pids_limit: 128
+    restart: unless-stopped
+    command:
+    - client
+    environment:
+      VLAN: '10'
+    networks:
+      '10':
+        ipv4_address: 10.77.10.10
+    volumes: []
+    depends_on:
+      suricata:
+        condition: service_healthy
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - ip route get 10.77.50.10 | grep -q 10.77.10.254
+      interval: 3s
+      timeout: 3s
+      retries: 30
+      start_period: 10s
+  admin:
+    image: enslab-node:trixie
+    build:
+      context: .
+      dockerfile: services/base/Dockerfile
+    init: false
+    cap_add:
+    - NET_ADMIN
+    - NET_RAW
+    security_opt:
+    - no-new-privileges:true
+    sysctls:
+      net.ipv6.conf.all.disable_ipv6: '1'
+    logging:
+      driver: json-file
+      options:
+        max-size: 5m
+        max-file: '2'
+    pids_limit: 128
+    restart: unless-stopped
+    command:
+    - client
+    environment:
+      VLAN: '30'
+    networks:
+      '30':
+        ipv4_address: 10.77.30.10
+    volumes:
+    - ./runtime/secrets:/run/secrets:ro
+    depends_on:
+      suricata:
+        condition: service_healthy
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - ip route get 10.77.50.10 | grep -q 10.77.30.254
+      interval: 3s
+      timeout: 3s
+      retries: 30
+      start_period: 10s
+  security:
+    image: enslab-node:trixie
+    build:
+      context: .
+      dockerfile: services/base/Dockerfile
+    init: false
+    cap_add:
+    - NET_ADMIN
+    - NET_RAW
+    security_opt:
+    - no-new-privileges:true
+    sysctls:
+      net.ipv6.conf.all.disable_ipv6: '1'
+    logging:
+      driver: json-file
+      options:
+        max-size: 5m
+        max-file: '2'
+    pids_limit: 128
+    restart: unless-stopped
+    command:
+    - client
+    environment:
+      VLAN: '40'
+    networks:
+      '40':
+        ipv4_address: 10.77.40.20
+    volumes: []
+    depends_on:
+      suricata:
+        condition: service_healthy
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - ip route get 10.77.50.10 | grep -q 10.77.40.254
+      interval: 3s
+      timeout: 3s
+      retries: 30
+      start_period: 10s
+  web:
+    image: enslab-node:trixie
+    build:
+      context: .
+      dockerfile: services/base/Dockerfile
+    init: false
+    cap_add:
+    - NET_ADMIN
+    - NET_RAW
+    security_opt:
+    - no-new-privileges:true
+    sysctls:
+      net.ipv6.conf.all.disable_ipv6: '1'
+    logging:
+      driver: json-file
+      options:
+        max-size: 5m
+        max-file: '2'
+    pids_limit: 128
+    restart: unless-stopped
+    command:
+    - web
+    environment:
+      VLAN: '50'
+    networks:
+      '50':
+        ipv4_address: 10.77.50.10
+    volumes:
+    - ./runtime/logs/web:/logs/web
+    - ./runtime/secrets/web_htpasswd:/run/secrets/web_htpasswd:ro
+    - ./runtime/secrets/db_password:/run/secrets/db_password:ro
+    depends_on:
+      suricata:
+        condition: service_healthy
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - curl -fsS http://127.0.0.1/ >/dev/null
+      interval: 3s
+      timeout: 3s
+      retries: 30
+      start_period: 10s
+  database:
+    image: enslab-node:trixie
+    build:
+      context: .
+      dockerfile: services/base/Dockerfile
+    init: false
+    cap_add:
+    - NET_ADMIN
+    - NET_RAW
+    security_opt:
+    - no-new-privileges:true
+    sysctls:
+      net.ipv6.conf.all.disable_ipv6: '1'
+    logging:
+      driver: json-file
+      options:
+        max-size: 5m
+        max-file: '2'
+    pids_limit: 128
+    restart: unless-stopped
+    command:
+    - database
+    environment:
+      VLAN: '20'
+    networks:
+      '20':
+        ipv4_address: 10.77.20.10
+    volumes:
+    - postgres:/data/postgres
+    - ./runtime/secrets/db_password:/run/secrets/db_password:ro
+    depends_on:
+      suricata:
+        condition: service_healthy
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - pg_isready -U postgres -h 127.0.0.1
+      interval: 3s
+      timeout: 3s
+      retries: 30
+      start_period: 10s
+  ssh:
+    image: enslab-node:trixie
+    build:
+      context: .
+      dockerfile: services/base/Dockerfile
+    init: false
+    cap_add:
+    - NET_ADMIN
+    - NET_RAW
+    security_opt:
+    - no-new-privileges:true
+    sysctls:
+      net.ipv6.conf.all.disable_ipv6: '1'
+    logging:
+      driver: json-file
+      options:
+        max-size: 5m
+        max-file: '2'
+    pids_limit: 128
+    restart: unless-stopped
+    command:
+    - ssh
+    environment:
+      VLAN: '30'
+    networks:
+      '30':
+        ipv4_address: 10.77.30.20
+    volumes:
+    - ./runtime/logs/ssh:/logs/ssh
+    - ./runtime/secrets/ssh_password:/run/secrets/ssh_password:ro
+    - ./runtime/secrets/admin_key.pub:/run/secrets/admin_key.pub:ro
+    depends_on:
+      suricata:
+        condition: service_healthy
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - pgrep -x sshd >/dev/null
+      interval: 3s
+      timeout: 3s
+      retries: 30
+      start_period: 10s
+  collector:
+    image: enslab-node:trixie
+    build:
+      context: .
+      dockerfile: services/base/Dockerfile
+    init: false
+    cap_add:
+    - NET_ADMIN
+    - NET_RAW
+    security_opt:
+    - no-new-privileges:true
+    sysctls:
+      net.ipv6.conf.all.disable_ipv6: '1'
+    logging:
+      driver: json-file
+      options:
+        max-size: 5m
+        max-file: '2'
+    pids_limit: 128
+    restart: unless-stopped
+    command:
+    - collector
+    environment:
+      VLAN: '40'
+    networks:
+      '40':
+        ipv4_address: 10.77.40.10
+    volumes:
+    - ./runtime/logs:/logs:ro
+    - collector:/data
+    depends_on:
+      suricata:
+        condition: service_healthy
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - curl -fsS http://127.0.0.1:8080/health >/dev/null
+      interval: 3s
+      timeout: 3s
+      retries: 30
+      start_period: 10s
+  internet:
+    image: enslab-node:trixie
+    build:
+      context: .
+      dockerfile: services/base/Dockerfile
+    init: false
+    cap_add:
+    - NET_ADMIN
+    - NET_RAW
+    security_opt:
+    - no-new-privileges:true
+    sysctls:
+      net.ipv6.conf.all.disable_ipv6: '1'
+    logging:
+      driver: json-file
+      options:
+        max-size: 5m
+        max-file: '2'
+    pids_limit: 128
+    restart: unless-stopped
+    command:
+    - internet
+    environment:
+      VLAN: '60'
+    networks:
+      '60':
+        ipv4_address: 10.77.60.10
+    volumes: []
+    depends_on:
+      suricata:
+        condition: service_healthy
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - curl -fsS http://127.0.0.1/ >/dev/null
+      interval: 3s
+      timeout: 3s
+      retries: 30
+      start_period: 10s
+networks:
+  '10':
+    name: enslab_vlan10
+    internal: true
+    driver: bridge
+    enable_ipv6: false
+    driver_opts:
+      com.docker.network.bridge.inhibit_ipv4: 'true'
+    ipam:
+      config:
+      - subnet: 10.77.10.0/24
+        gateway: 10.77.10.1
+  '20':
+    name: enslab_vlan20
+    internal: true
+    driver: bridge
+    enable_ipv6: false
+    driver_opts:
+      com.docker.network.bridge.inhibit_ipv4: 'true'
+    ipam:
+      config:
+      - subnet: 10.77.20.0/24
+        gateway: 10.77.20.1
+  '30':
+    name: enslab_vlan30
+    internal: true
+    driver: bridge
+    enable_ipv6: false
+    driver_opts:
+      com.docker.network.bridge.inhibit_ipv4: 'true'
+    ipam:
+      config:
+      - subnet: 10.77.30.0/24
+        gateway: 10.77.30.1
+  '40':
+    name: enslab_vlan40
+    internal: true
+    driver: bridge
+    enable_ipv6: false
+    driver_opts:
+      com.docker.network.bridge.inhibit_ipv4: 'true'
+    ipam:
+      config:
+      - subnet: 10.77.40.0/24
+        gateway: 10.77.40.1
+  '50':
+    name: enslab_vlan50
+    internal: true
+    driver: bridge
+    enable_ipv6: false
+    driver_opts:
+      com.docker.network.bridge.inhibit_ipv4: 'true'
+    ipam:
+      config:
+      - subnet: 10.77.50.0/24
+        gateway: 10.77.50.1
+  '60':
+    name: enslab_vlan60
+    internal: true
+    driver: bridge
+    enable_ipv6: false
+    driver_opts:
+      com.docker.network.bridge.inhibit_ipv4: 'true'
+    ipam:
+      config:
+      - subnet: 10.77.60.0/24
+        gateway: 10.77.60.1
+volumes:
+  postgres: {}
+  collector: {}
+
