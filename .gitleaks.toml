@@ -1,0 +1,21 @@
+title = "Enterprise lab secret scanning"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "curl-auth-user"
+
+[[rules.allowlists]]
+description = "Deliberately invalid credentials used only in the authentication-failure exercise"
+condition = "AND"
+regexTarget = "secret"
+regexes = ['''^wrong:wrong$''']
+paths = ['''(^|/)(scripts/attack-scenarios/run\.sh|docs/attack-scenarios\.md)$''']
+
+[[rules.allowlists]]
+description = "Runtime secret-file lookup; curl rule matches this exact literal shell expression"
+condition = "AND"
+regexTarget = "secret"
+regexes = ['''^"analyst:\$\(cat\ /run/secrets/web_password\)"$''']
+paths = ['''(^|/)tests/test_network\.py$''']
